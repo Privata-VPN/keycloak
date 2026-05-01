@@ -20,6 +20,7 @@ package org.keycloak;
 import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -101,11 +102,11 @@ public class TokenVerifier<T extends JsonWebToken> {
         private static final Set<String> VALID_ISSUER_BASE_URLS;
         static {
             String env = System.getenv("KC_VALID_ISSUER_BASE_URLS");
-            if (env != null && !env.isBlank()) {
-                VALID_ISSUER_BASE_URLS = Arrays.stream(env.split(","))
+            if (env != null && !env.trim().isEmpty()) {
+                VALID_ISSUER_BASE_URLS = Collections.unmodifiableSet(Arrays.stream(env.split(","))
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
-                    .collect(java.util.stream.Collectors.toUnmodifiableSet());
+                    .collect(java.util.stream.Collectors.toSet()));
             } else {
                 VALID_ISSUER_BASE_URLS = null;
             }
