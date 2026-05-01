@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.SecretKey;
@@ -97,6 +98,19 @@ public class TokenVerifier<T extends JsonWebToken> {
 
         private static final RealmUrlCheck NULL_INSTANCE = new RealmUrlCheck(null);
 
+        private static final Set<String> VALID_ISSUER_BASE_URLS;
+        static {
+            String env = System.getenv("KC_VALID_ISSUER_BASE_URLS");
+            if (env != null && !env.isBlank()) {
+                VALID_ISSUER_BASE_URLS = Arrays.stream(env.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(java.util.stream.Collectors.toUnmodifiableSet());
+            } else {
+                VALID_ISSUER_BASE_URLS = null;
+            }
+        }
+
         private final String realmUrl;
 
         public RealmUrlCheck(String realmUrl) {
@@ -109,13 +123,27 @@ public class TokenVerifier<T extends JsonWebToken> {
                 throw new VerificationException("Realm URL not set");
             }
 
-            if (! this.realmUrl.equals(t.getIssuer())) {
-                throw new VerificationException("Invalid token issuer. Expected '" + this.realmUrl + "'");
+            if (this.realmUrl.equals(t.getIssuer())) {
+                return true;
             }
 
-            return true;
+            if (VALID_ISSUER_BASE_URLS != null) {
+                try {
+                    java.net.URI expected = java.net.URI.create(this.realmUrl);
+                    java.net.URI actual = java.net.URI.create(t.getIssuer());
+                    if (expected.getPath().equals(actual.getPath())
+                            && VALID_ISSUER_BASE_URLS.contains(actual.getScheme() + "://" + actual.getHost())) {
+                        return true;
+                    }
+                } catch (IllegalArgumentException e) {
+                    // malformed URI, fall through to error
+                }
+            }
+
+            throw new VerificationException("Invalid token issuer. Expected '" + this.realmUrl + "'");
         }
     }
+
 
     public static class TokenTypeCheck implements Predicate<JsonWebToken> {
 
