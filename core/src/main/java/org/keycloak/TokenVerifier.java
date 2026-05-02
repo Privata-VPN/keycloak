@@ -111,8 +111,8 @@ public class TokenVerifier<T extends JsonWebToken> {
             } else {
                 VALID_ISSUER_BASE_URLS = null;
             }
-            LOG.debug("[RealmUrlCheck] KC_VALID_ISSUER_BASE_URLS raw = " + RAW_ENV);
-            LOG.debug("[RealmUrlCheck] KC_VALID_ISSUER_BASE_URLS parsed = " + VALID_ISSUER_BASE_URLS);
+            LOG.fine("[RealmUrlCheck] KC_VALID_ISSUER_BASE_URLS raw = " + RAW_ENV);
+            LOG.fine("[RealmUrlCheck] KC_VALID_ISSUER_BASE_URLS parsed = " + VALID_ISSUER_BASE_URLS);
         }
 
         private final String realmUrl;
@@ -123,7 +123,7 @@ public class TokenVerifier<T extends JsonWebToken> {
 
         @Override
         public boolean test(JsonWebToken t) throws VerificationException {
-            LOG.debug("[RealmUrlCheck] expectedRealmUrl=" + this.realmUrl
+            LOG.fine("[RealmUrlCheck] expectedRealmUrl=" + this.realmUrl
                     + " | tokenIssuer=" + t.getIssuer()
                     + " | validBaseUrls=" + VALID_ISSUER_BASE_URLS);
 
@@ -132,7 +132,7 @@ public class TokenVerifier<T extends JsonWebToken> {
             }
 
             if (this.realmUrl.equals(t.getIssuer())) {
-                LOG.debug("[RealmUrlCheck] PASS: exact match");
+                LOG.fine("[RealmUrlCheck] PASS: exact match");
                 return true;
             }
 
@@ -141,13 +141,13 @@ public class TokenVerifier<T extends JsonWebToken> {
                     java.net.URI expected = java.net.URI.create(this.realmUrl);
                     java.net.URI actual = java.net.URI.create(t.getIssuer());
                     String actualBase = actual.getScheme() + "://" + actual.getHost();
-                    LOG.debug("[RealmUrlCheck] comparing paths: expected=" + expected.getPath()
+                    LOG.fine("[RealmUrlCheck] comparing paths: expected=" + expected.getPath()
                             + " actual=" + actual.getPath()
                             + " | actualBase=" + actualBase
                             + " | baseInAllowList=" + VALID_ISSUER_BASE_URLS.contains(actualBase));
                     if (expected.getPath().equals(actual.getPath())
                             && VALID_ISSUER_BASE_URLS.contains(actualBase)) {
-                        LOG.debug("[RealmUrlCheck] PASS: multi-domain match via KC_VALID_ISSUER_BASE_URLS");
+                        LOG.fine("[RealmUrlCheck] PASS: multi-domain match via KC_VALID_ISSUER_BASE_URLS");
                         return true;
                     }
                 } catch (IllegalArgumentException e) {
