@@ -996,7 +996,7 @@ public class TokenManager {
         token.issuedFor(client.getClientId());
 
         AuthenticatedClientSessionModel clientSession = clientSessionCtx.getClientSession();
-        token.issuer(clientSession.getNote(OIDCLoginProtocol.ISSUER));
+        token.issuer(clientSessionIssuer(session, realm, clientSession));
         token.setScope(clientSessionCtx.getScopeString());
 
         // Backwards compatibility behaviour prior step-up authentication was introduced
@@ -1022,6 +1022,24 @@ public class TokenManager {
         }
 
         return token;
+    }
+
+    /**
+     * The issuer is stored on the client session at login. Sessions that started
+     * before the realm got a static issuer still hold the login host's issuer, so
+     * it is replaced here: refreshed tokens and later logout and authorization
+     * responses for the session then carry the static issuer.
+     */
+    private static String clientSessionIssuer(KeycloakSession session, RealmModel realm, AuthenticatedClientSessionModel clientSession) {
+        String issuer = clientSession.getNote(OIDCLoginProtocol.ISSUER);
+        if (!Urls.hasStaticIssuer(realm.getName())) {
+            return issuer;
+        }
+        String staticIssuer = Urls.realmIssuer(session.getContext().getUri().getBaseUri(), realm.getName());
+        if (!staticIssuer.equals(issuer)) {
+            clientSession.setNote(OIDCLoginProtocol.ISSUER, staticIssuer);
+        }
+        return staticIssuer;
     }
 
     private Long getTokenExpiration(RealmModel realm, ClientModel client, UserSessionModel userSession,

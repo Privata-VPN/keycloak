@@ -17,6 +17,8 @@
 package org.keycloak.services;
 
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 
 import jakarta.ws.rs.core.UriBuilder;
 
@@ -36,10 +38,18 @@ import org.keycloak.services.resources.ThemeResource;
 import org.keycloak.services.resources.admin.AdminRoot;
 import org.keycloak.utils.StringUtil;
 
+import org.jboss.logging.Logger;
+
 /**
  * @author <a href="mailto:sthorger@redhat.com">Stian Thorgersen</a>
  */
 public class Urls {
+
+    private static final Logger logger = Logger.getLogger(Urls.class);
+
+    static final String STATIC_ISSUERS_ENV = "KC_STATIC_ISSUERS";
+
+    private static final Map<String, URI> STATIC_ISSUER_BASE_URIS = parseStaticIssuers(System.getenv(STATIC_ISSUERS_ENV));
 
     public static URI adminConsoleRoot(URI baseUri, String realmName) {
         return UriBuilder.fromUri(baseUri).path(AdminRoot.class).path("{realm}/console/").build(realmName);
@@ -163,8 +173,44 @@ public class Urls {
         return loginActionsBase(baseUri).path(LoginActionsService.class, "usernameReminder");
     }
 
+    public static boolean hasStaticIssuer(String realmName) {
+        return STATIC_ISSUER_BASE_URIS.containsKey(realmName);
+    }
+
     public static String realmIssuer(URI baseUri, String realmName) {
-        return realmBase(baseUri).path("{realm}").build(realmName).toString();
+        URI base = STATIC_ISSUER_BASE_URIS.getOrDefault(realmName, baseUri);
+        return realmBase(base).path("{realm}").build(realmName).toString();
+    }
+
+    /**
+     * Parses {@code realm=baseUrl,realm2=baseUrl2}. The base URL must include the
+     * HTTP relative path (e.g. {@code /auth}) so the issuer path matches the one
+     * in tokens issued before the static issuer was configured.
+     */
+    static Map<String, URI> parseStaticIssuers(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Map.of();
+        }
+        Map<String, URI> result = new HashMap<>();
+        for (String entry : raw.split(",")) {
+            String trimmed = entry.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            int separator = trimmed.indexOf('=');
+            if (separator <= 0 || separator == trimmed.length() - 1) {
+                throw new IllegalStateException(STATIC_ISSUERS_ENV + ": expected realm=baseUrl, got '" + trimmed + "'");
+            }
+            String realmName = trimmed.substring(0, separator).trim();
+            String baseUrl = trimmed.substring(separator + 1).trim().replaceAll("/+$", "");
+            URI base = URI.create(baseUrl);
+            if (!("https".equals(base.getScheme()) || "http".equals(base.getScheme())) || base.getHost() == null) {
+                throw new IllegalStateException(STATIC_ISSUERS_ENV + ": invalid base URL for realm '" + realmName + "': " + baseUrl);
+            }
+            result.put(realmName, base);
+        }
+        logger.infof("Static issuers from %s: %s", STATIC_ISSUERS_ENV, result);
+        return Map.copyOf(result);
     }
 
     public static UriBuilder realmBase(URI baseUri) {
